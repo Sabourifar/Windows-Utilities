@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: Set the window title
-title DNS Configuration Utility v6 By Sabourifar
+title DNS Configuration Utility v7 By Sabourifar
 
 :: Define constants for UI elements and PowerShell command prefix
 set "line_sep========================================================================================================================="
@@ -40,7 +40,7 @@ set "dns_providers[12]=DNSCrypt=127.0.0.1="
 set "dns_count=12"
 
 :: Display the initial title
-echo ====================================== DNS Configuration Utility v6 By Sabourifar ======================================
+echo ====================================== DNS Configuration Utility v7 By Sabourifar ======================================
 echo.
 
 :: Detect and display DNS configuration
@@ -48,17 +48,21 @@ call :detect_and_show_dns
 if not defined interface goto no_interface_menu
 
 :main_menu
+:: Clear input buffer before showing menu
+call :clear_input_buffer
+
 :: Display main menu and get user input
 set "choice="
 echo %line_sep%
 echo.
 echo  # Select DNS Configuration Method
 echo.
-echo  1. Public DNS Servers (Pre Configured)
-echo  2. Advanced (Configure Manually)
-echo  3. Set DNS To DHCP
-echo  4. Flush DNS Cache
-echo  5. Current DNS Configuration
+echo  1. Select Preconfigured DNS
+echo  2. Manually Configure DNS
+echo  3. Use Automatic DNS (DHCP)
+echo  4. Clear DNS Cache
+echo  5. Reset Network Settings
+echo  6. View Current DNS Settings
 echo  0. Exit
 echo.
 set /p "choice=Enter Your Choice: "
@@ -71,6 +75,7 @@ if "%choice%"=="2" goto :choice_2
 if "%choice%"=="3" goto :choice_3
 if "%choice%"=="4" goto :choice_4
 if "%choice%"=="5" goto :choice_5
+if "%choice%"=="6" goto :choice_6
 if "%choice%"=="0" exit
 
 :invalid_main
@@ -82,13 +87,17 @@ echo.
 goto main_menu
 
 :no_interface_menu
+:: Clear input buffer before showing menu
+call :clear_input_buffer
+
 :: Display limited menu when no interface is detected
 set "choice="
 echo %line_sep%
 echo.
-echo  # Only Flush DNS Cache is Available - Connect to a Network to Configure DNS
+echo  # Only Clear DNS Cache and Reset Network Settings are Available - Connect to a Network to Configure DNS
 echo.
-echo  1. Flush DNS Cache
+echo  1. Clear DNS Cache
+echo  2. Reset Network Settings
 echo  0. Exit
 echo.
 set /p "choice=Enter Your Choice: "
@@ -97,6 +106,7 @@ echo.
 :: Process no-interface menu selection
 if "%choice%"=="" goto invalid_no_interface
 if "%choice%"=="1" goto :flush_dns
+if "%choice%"=="2" goto :network_reset
 if "%choice%"=="0" exit
 
 :invalid_no_interface
@@ -128,13 +138,25 @@ call :flush_dns
 goto :exit_menu
 
 :choice_5
-:: Current DNS configuration with proper formatting
+:: Call network reset subroutine
+call :network_reset
+goto :exit_menu
+
+:choice_6
+:: View current DNS settings with proper formatting
 echo %line_sep%
 echo.
 call :detect_and_show_dns
 echo %line_sep%
 echo.
 goto :exit_menu
+
+:clear_input_buffer
+:: Clear any buffered keystrokes to prevent interference
+for /l %%i in (1,1,10) do (
+    set /p "dummy=" <nul 2>nul
+)
+exit /b
 
 :detect_and_show_dns
 :: Unified routine for detecting and displaying DNS configuration
@@ -255,6 +277,10 @@ echo %line_sep%
 echo.
 echo %double_eq%!applying_msg!...
 echo.
+
+:: Clear input buffer before applying settings
+call :clear_input_buffer
+
 netsh interface ipv4 set dns name="%interface%" source=dhcp >nul
 
 :: Show the updated DNS configuration
@@ -264,7 +290,7 @@ call :detect_and_show_dns
 echo %line_sep%
 echo.
 
-:: Flush DNS cache
+:: Clear DNS cache
 echo %double_eq%!clearing_msg!...
 echo.
 ipconfig /flushdns >nul
@@ -277,10 +303,13 @@ exit /b
 :choose_dns
 :: Display preconfigured DNS options and get user selection
 :retry_dns
+:: Clear input buffer before showing menu
+call :clear_input_buffer
+
 set "dnschoice="
 echo %line_sep%
 echo.
-echo  # Select Public DNS Server
+echo  # Select Preconfigured DNS Server
 echo.
 echo  1. Cloudflare
 echo  2. Google
@@ -294,21 +323,24 @@ echo  9. Begzar
 echo  10. Radar
 echo  11. Electro
 echo  12. DNSCrypt
-echo  0. Return to menu
+echo  0. Back to Main Menu
 echo.
 set /p "dnschoice=Enter Your Choice: "
 echo.
 
-:: Map user choice to DNS settings using the provider database
-set "NAME=" & set "DNS1=" & set "DNS2="
+:: Handle return to main menu
 if "%dnschoice%"=="0" goto main_menu
 
-:: Convert input to number and validate
-set /a num=dnschoice 2>nul
-if errorlevel 1 goto invalid_dns
-if !num! lss 1 goto invalid_dns
-if !num! gtr %dns_count% goto invalid_dns
+:: Validate input is a number and within range
+set "valid_choice=0"
+for /l %%i in (1,1,%dns_count%) do (
+    if "%dnschoice%"=="%%i" set "valid_choice=1"
+)
 
+if !valid_choice! EQU 0 goto invalid_dns
+
+:: Map user choice to DNS settings using the provider database
+set "NAME=" & set "DNS1=" & set "DNS2="
 for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%dnschoice%]!") do (
     set "NAME=%%a"
     set "DNS1=%%b"
@@ -330,6 +362,9 @@ goto retry_dns
 echo %line_sep%
 echo.
 :get_primary
+:: Clear input buffer before prompting
+call :clear_input_buffer
+
 set "DNS1="
 set /p "DNS1=Enter The Primary DNS Server: "
 echo.
@@ -353,6 +388,9 @@ if !ERRORLEVEL! NEQ 0 (
 )
 
 :get_secondary
+:: Clear input buffer before prompting
+call :clear_input_buffer
+
 set "DNS2="
 set /p "DNS2=Enter The Secondary DNS Server (Optional): "
 echo.
@@ -435,6 +473,10 @@ echo %line_sep%
 echo.
 echo %double_eq%!applying_msg!...
 echo.
+
+:: Clear input buffer before applying settings
+call :clear_input_buffer
+
 netsh interface ipv4 set dns name="%interface%" static %DNS1% primary >nul
 if defined DNS2 if "%DNS2%" NEQ "" (
     netsh interface ipv4 add dns name="%interface%" %DNS2% index=2 >nul
@@ -447,7 +489,7 @@ call :detect_and_show_dns
 echo %line_sep%
 echo.
 
-:: Flush DNS cache
+:: Clear DNS cache
 echo %double_eq%!clearing_msg!...
 echo.
 ipconfig /flushdns >nul
@@ -463,16 +505,125 @@ echo %line_sep%
 echo.
 echo %double_eq%!clearing_msg!...
 echo.
+
+:: Clear input buffer before flushing
+call :clear_input_buffer
+
 ipconfig /flushdns >nul
 echo %quad_eq%!cleared_msg!.
 echo.
 echo %line_sep%
 echo.
 
+:network_reset
+:: Comprehensive network reset with user warning
+echo %line_sep%
+echo.
+echo %double_eq%Network Reset Warning
+echo.
+echo %quad_eq%This will perform a comprehensive network reset including:
+echo %quad_eq%- Reset Winsock catalog
+echo %quad_eq%- Reset TCP/IP stack  
+echo %quad_eq%- Reset Windows Firewall
+echo %quad_eq%- Flush DNS cache
+echo %quad_eq%- Release and renew IP configuration
+echo.
+echo %quad_eq%WARNING: Network connection will be temporarily interrupted!
+echo %quad_eq%Some changes may require a system reboot to take full effect.
+echo.
+
+:: Clear input buffer and get confirmation
+call :clear_input_buffer
+set "confirm="
+set /p "confirm=Continue with Network Reset? (Y/N): "
+echo.
+
+if /i "!confirm!" NEQ "Y" if /i "!confirm!" NEQ "YES" (
+    echo %quad_eq%Network Reset Cancelled.
+    echo.
+    echo %line_sep%
+    echo.
+    exit /b
+)
+
+:: Perform network reset operations
+echo %line_sep%
+echo.
+echo %double_eq%Performing Network Reset...
+echo.
+
+:: Clear input buffer before starting operations
+call :clear_input_buffer
+
+echo %quad_eq%Step 1/6: Resetting Winsock catalog...
+netsh winsock reset >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%         Winsock reset completed successfully.
+) else (
+    echo %quad_eq%         WARNING: Winsock reset failed.
+)
+echo.
+
+echo %quad_eq%Step 2/6: Resetting TCP/IP stack...
+netsh int ip reset >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%         TCP/IP reset completed successfully.
+) else (
+    echo %quad_eq%         WARNING: TCP/IP reset failed.
+)
+echo.
+
+echo %quad_eq%Step 3/6: Resetting Windows Firewall...
+netsh advfirewall reset >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%         Firewall reset completed successfully.
+) else (
+    echo %quad_eq%         WARNING: Firewall reset failed.
+)
+echo.
+
+echo %quad_eq%Step 4/6: Flushing DNS cache...
+ipconfig /flushdns >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%         DNS cache flushed successfully.
+) else (
+    echo %quad_eq%         WARNING: DNS flush failed.
+)
+echo.
+
+echo %quad_eq%Step 5/6: Releasing IP configuration...
+ipconfig /release >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%         IP configuration released successfully.
+) else (
+    echo %quad_eq%         WARNING: IP release failed or no DHCP lease to release.
+)
+echo.
+
+echo %quad_eq%Step 6/6: Renewing IP configuration...
+ipconfig /renew >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%         IP configuration renewed successfully.
+) else (
+    echo %quad_eq%         WARNING: IP renewal failed. Check network connection.
+)
+echo.
+
+echo %double_eq%Network Reset Completed!
+echo.
+echo %quad_eq%RECOMMENDATION: Restart your computer for all changes to take effect.
+echo.
+echo %line_sep%
+echo.
+exit /b
+
 :exit_menu
-:: Offer options to return to menu or exit
+:: Clear input buffer before showing menu
+call :clear_input_buffer
+
+:: Offer options to return to main menu or exit
 set "userchoice="
-echo  1. Return to menu
+echo  1. Back to Main Menu
 echo  0. Exit
 echo.
 set /p "userchoice=Enter Your Choice: "
