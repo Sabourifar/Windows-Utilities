@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: Set the window title
-title DNS Configuration Utility v7 By Sabourifar
+title DNS Configuration Utility v8 By Sabourifar
 
 :: Define constants for UI elements and PowerShell command prefix
 set "line_sep========================================================================================================================="
@@ -22,7 +22,7 @@ set "invalid_msg=Invalid Selection, Please Try Again."
 :: Define message variables for consistency
 set "applying_msg=Applying DNS Settings"
 set "clearing_msg=Clearing DNS Cache"
-set "cleared_msg=Successfully Cleared DNS Resolver Cache"
+set "cleared_msg=DNS cache flushed successfully."
 
 :: Define DNS provider database (Name=Primary=Secondary)
 set "dns_providers[1]=Cloudflare=1.1.1.1=1.0.0.1"
@@ -40,7 +40,7 @@ set "dns_providers[12]=DNSCrypt=127.0.0.1="
 set "dns_count=12"
 
 :: Display the initial title
-echo ====================================== DNS Configuration Utility v7 By Sabourifar ======================================
+echo ====================================== DNS Configuration Utility v8 By Sabourifar ======================================
 echo.
 
 :: Detect and display DNS configuration
@@ -106,7 +106,7 @@ echo.
 :: Process no-interface menu selection
 if "%choice%"=="" goto invalid_no_interface
 if "%choice%"=="1" goto :flush_dns
-if "%choice%"=="2" goto :network_reset
+if "%choice%"=="2" call :network_reset & goto :exit_menu
 if "%choice%"=="0" exit
 
 :invalid_no_interface
@@ -293,12 +293,17 @@ echo.
 :: Clear DNS cache
 echo %double_eq%!clearing_msg!...
 echo.
-ipconfig /flushdns >nul
-echo %quad_eq%!cleared_msg!.
+timeout /t 1 >nul
+ipconfig /flushdns >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%!cleared_msg!
+) else (
+    echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
+)
 echo.
 echo %line_sep%
 echo.
-exit /b
+goto :exit_menu
 
 :choose_dns
 :: Display preconfigured DNS options and get user selection
@@ -492,12 +497,17 @@ echo.
 :: Clear DNS cache
 echo %double_eq%!clearing_msg!...
 echo.
-ipconfig /flushdns >nul
-echo %quad_eq%!cleared_msg!.
+timeout /t 1 >nul
+ipconfig /flushdns >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%!cleared_msg!
+) else (
+    echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
+)
 echo.
 echo %line_sep%
 echo.
-exit /b
+goto :exit_menu
 
 :flush_dns
 :: Clear the DNS cache with consistent formatting
@@ -505,15 +515,17 @@ echo %line_sep%
 echo.
 echo %double_eq%!clearing_msg!...
 echo.
-
-:: Clear input buffer before flushing
-call :clear_input_buffer
-
-ipconfig /flushdns >nul
-echo %quad_eq%!cleared_msg!.
+timeout /t 1 >nul
+ipconfig /flushdns >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    echo %quad_eq%!cleared_msg!
+) else (
+    echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
+)
 echo.
 echo %line_sep%
 echo.
+goto :exit_menu
 
 :network_reset
 :: Comprehensive network reset with user warning
@@ -521,9 +533,9 @@ echo %line_sep%
 echo.
 echo %double_eq%Network Reset Warning
 echo.
-echo %quad_eq%This will perform a comprehensive network reset including:
+echo %quad_eq%This will perform a comprehensive network reset, including:
 echo %quad_eq%- Reset Winsock catalog
-echo %quad_eq%- Reset TCP/IP stack  
+echo %quad_eq%- Reset TCP/IP stack
 echo %quad_eq%- Reset Windows Firewall
 echo %quad_eq%- Flush DNS cache
 echo %quad_eq%- Release and renew IP configuration
@@ -539,11 +551,13 @@ set /p "confirm=Continue with Network Reset? (Y/N): "
 echo.
 
 if /i "!confirm!" NEQ "Y" if /i "!confirm!" NEQ "YES" (
+    echo %line_sep%
+    echo.
     echo %quad_eq%Network Reset Cancelled.
     echo.
     echo %line_sep%
     echo.
-    exit /b
+    goto :exit_menu
 )
 
 :: Perform network reset operations
@@ -556,56 +570,62 @@ echo.
 call :clear_input_buffer
 
 echo %quad_eq%Step 1/6: Resetting Winsock catalog...
+timeout /t 1 >nul
 netsh winsock reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%         Winsock reset completed successfully.
+    echo %quad_eq%Winsock reset completed successfully.
 ) else (
-    echo %quad_eq%         WARNING: Winsock reset failed.
+    echo %quad_eq%WARNING: Winsock reset failed.
 )
 echo.
 
 echo %quad_eq%Step 2/6: Resetting TCP/IP stack...
+timeout /t 1 >nul
 netsh int ip reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%         TCP/IP reset completed successfully.
+    echo %quad_eq%TCP/IP reset completed successfully.
 ) else (
-    echo %quad_eq%         WARNING: TCP/IP reset failed.
+    echo %quad_eq%WARNING: TCP/IP reset failed.
 )
 echo.
 
 echo %quad_eq%Step 3/6: Resetting Windows Firewall...
+timeout /t 1 >nul
 netsh advfirewall reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%         Firewall reset completed successfully.
+    echo %quad_eq%Firewall reset completed successfully.
 ) else (
-    echo %quad_eq%         WARNING: Firewall reset failed.
+    echo %quad_eq%WARNING: Firewall reset failed.
 )
 echo.
 
 echo %quad_eq%Step 4/6: Flushing DNS cache...
+timeout /t 1 >nul
 ipconfig /flushdns >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%         DNS cache flushed successfully.
+    echo %quad_eq%!cleared_msg!
 ) else (
-    echo %quad_eq%         WARNING: DNS flush failed.
+    echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
 )
 echo.
 
 echo %quad_eq%Step 5/6: Releasing IP configuration...
+timeout /t 1 >nul
 ipconfig /release >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%         IP configuration released successfully.
+    echo %quad_eq%IP configuration released successfully.
 ) else (
-    echo %quad_eq%         WARNING: IP release failed or no DHCP lease to release.
+    echo %quad_eq%WARNING: IP release failed or no DHCP lease to release.
 )
 echo.
 
 echo %quad_eq%Step 6/6: Renewing IP configuration...
+timeout /t 1 >nul
 ipconfig /renew >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%         IP configuration renewed successfully.
+    echo %quad_eq%IP configuration renewed successfully.
 ) else (
-    echo %quad_eq%         WARNING: IP renewal failed. Check network connection.
+    echo %quad_eq%WARNING: IP renewal failed. Check network connection.
 )
 echo.
 
@@ -615,7 +635,7 @@ echo %quad_eq%RECOMMENDATION: Restart your computer for all changes to take effe
 echo.
 echo %line_sep%
 echo.
-exit /b
+goto :exit_menu
 
 :exit_menu
 :: Clear input buffer before showing menu
