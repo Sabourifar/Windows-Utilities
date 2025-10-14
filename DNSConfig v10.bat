@@ -20,8 +20,8 @@ set "pscmd=powershell -noprofile -command"
 set "invalid_msg=Invalid Selection, Please Try Again."
 
 :: Define message variables for consistency
-set "applying_msg=Applying DNS Settings"
-set "clearing_msg=Clearing DNS Cache"
+set "applying_msg=Applying DNS settings"
+set "clearing_msg=Clearing DNS cache"
 set "cleared_msg=DNS cache flushed successfully."
 
 :: Define DNS provider database (Name=Primary=Secondary)
@@ -40,7 +40,7 @@ set "dns_providers[12]=DNSCrypt=127.0.0.1="
 set "dns_count=12"
 
 :: Display the initial title
-echo ============================================== DNSConfig v10 by Sabourifar ==============================================
+echo ============================================= DNSConfig v10 by Sabourifar ==============================================
 echo.
 
 :: Detect and display DNS configuration
@@ -524,6 +524,8 @@ if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
 )
 echo.
+echo %line_sep%
+echo.
 exit /b
 
 :flush_dns
@@ -531,8 +533,6 @@ exit /b
 echo %line_sep%
 echo.
 call :perform_dns_flush
-echo %line_sep%
-echo.
 goto :exit_menu
 
 :network_reset
