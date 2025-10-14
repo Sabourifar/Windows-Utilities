@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: Set the window title
-title DNSConfig v9 by Sabourifar
+title DNSConfig v10 by Sabourifar
 
 :: Define constants for UI elements and PowerShell command prefix
 set "line_sep========================================================================================================================="
@@ -40,7 +40,7 @@ set "dns_providers[12]=DNSCrypt=127.0.0.1="
 set "dns_count=12"
 
 :: Display the initial title
-echo ============================================== DNSConfig v9 by Sabourifar ==============================================
+echo ============================================== DNSConfig v10 by Sabourifar ==============================================
 echo.
 
 :: Detect and display DNS configuration
@@ -174,7 +174,7 @@ for /l %%i in (1,1,11) do (
 echo %line_sep%
 echo.
 
-:: Clear input buffer after ping test (using faster method)
+:: Clear input buffer after ping test
 call :clear_input_buffer
 
 exit /b
@@ -193,9 +193,8 @@ if "!result!"=="Unreachable" (
 exit /b
 
 :clear_input_buffer
-:: A faster, native method to clear the input buffer without PowerShell overhead
-set "key="
-set /p "key=" <nul
+:: More reliable method to clear input buffer using PowerShell
+>nul powershell -noprofile -command "if($Host.UI.RawUI.KeyAvailable){$Host.UI.RawUI.FlushInputBuffer()}"
 exit /b
 
 :detect_and_show_dns
@@ -329,19 +328,8 @@ call :detect_and_show_dns
 echo %line_sep%
 echo.
 
-:: Clear DNS cache
-echo %double_eq%!clearing_msg!...
-echo.
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
-ipconfig /flushdns >nul 2>&1
-if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%!cleared_msg!
-) else (
-    echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
-)
-echo.
-echo %line_sep%
-echo.
+:: Clear DNS cache using centralized function
+call :perform_dns_flush
 goto :exit_menu
 
 :choose_dns
@@ -521,10 +509,14 @@ call :detect_and_show_dns
 echo %line_sep%
 echo.
 
-:: Clear DNS cache
+:: Clear DNS cache using centralized function
+call :perform_dns_flush
+goto :exit_menu
+
+:perform_dns_flush
+:: Centralized DNS flush function used by multiple routines
 echo %double_eq%!clearing_msg!...
 echo.
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 ipconfig /flushdns >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%!cleared_msg!
@@ -532,24 +524,13 @@ if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
 )
 echo.
-echo %line_sep%
-echo.
-goto :exit_menu
+exit /b
 
 :flush_dns
 :: Clear the DNS cache with consistent formatting
 echo %line_sep%
 echo.
-echo %double_eq%!clearing_msg!...
-echo.
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
-ipconfig /flushdns >nul 2>&1
-if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%!cleared_msg!
-) else (
-    echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
-)
-echo.
+call :perform_dns_flush
 echo %line_sep%
 echo.
 goto :exit_menu
@@ -592,7 +573,6 @@ echo %double_eq%Performing Network Reset...
 echo.
 
 echo %quad_eq%Step 1/6: Resetting Winsock catalog...
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 netsh winsock reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%Winsock reset completed successfully.
@@ -602,7 +582,6 @@ if !ERRORLEVEL! EQU 0 (
 echo.
 
 echo %quad_eq%Step 2/6: Resetting TCP/IP stack...
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 netsh int ip reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%TCP/IP reset completed successfully.
@@ -612,7 +591,6 @@ if !ERRORLEVEL! EQU 0 (
 echo.
 
 echo %quad_eq%Step 3/6: Resetting Windows Firewall...
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 netsh advfirewall reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%Firewall reset completed successfully.
@@ -622,17 +600,15 @@ if !ERRORLEVEL! EQU 0 (
 echo.
 
 echo %quad_eq%Step 4/6: Flushing DNS cache...
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 ipconfig /flushdns >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
-    echo %quad_eq%!cleared_msg!
+    echo %quad_eq%DNS flush completed successfully.
 ) else (
     echo %quad_eq%WARNING: DNS flush failed. Check if DNS Client service is running.
 )
 echo.
 
 echo %quad_eq%Step 5/6: Releasing IP configuration...
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 ipconfig /release >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%IP configuration released successfully.
@@ -642,7 +618,6 @@ if !ERRORLEVEL! EQU 0 (
 echo.
 
 echo %quad_eq%Step 6/6: Renewing IP configuration...
-!pscmd! "Start-Sleep -Milliseconds 1000" >nul
 ipconfig /renew >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%IP configuration renewed successfully.
@@ -666,7 +641,7 @@ echo  1. Back to Main Menu
 echo  0. Exit
 echo.
 
-:: Clear input buffer after operations that take time (using faster method)
+:: Clear input buffer after operations that take time
 call :clear_input_buffer
 
 set /p "userchoice=Enter Your Choice: "
