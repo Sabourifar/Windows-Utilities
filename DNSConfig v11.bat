@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Check for administrator privileges and request elevation if needed
+:: Administrator Privilege Check
 NET FILE >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo  == Requesting administrative privileges...
@@ -9,22 +9,22 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b
 )
 
-:: Set the window title
+:: Initialization
 title DNSConfig v11 by Sabourifar
 
-:: Define constants for UI elements and PowerShell command prefix
+:: Define constants for consistent UI formatting
 set "line_sep========================================================================================================================="
 set "double_eq=  == "
 set "quad_eq=  ==== "
 set "pscmd=powershell -noprofile -command"
 set "invalid_msg=Invalid selection. Please try again."
 
-:: Define message variables for consistency
+:: Define message variables for consistent messaging
 set "applying_msg=Applying DNS settings"
 set "clearing_msg=Clearing DNS cache"
 set "cleared_msg=DNS cache flushed successfully."
 
-:: Define DNS provider database (Name=Primary=Secondary)
+:: DNS Provider Database - Name=PrimaryDNS=SecondaryDNS
 set "dns_providers[1]=Cloudflare=1.1.1.1=1.0.0.1"
 set "dns_providers[2]=Google=8.8.8.8=8.8.4.4"
 set "dns_providers[3]=Quad9=9.9.9.9=149.112.112.112"
@@ -38,23 +38,25 @@ set "dns_providers[10]=Electro=78.157.42.100=78.157.42.101"
 set "dns_providers[11]=DNSCrypt=127.0.0.1="
 set "dns_count=11"
 
-:: Display the initial title
+:: Display application header
 echo ============================================= DNSConfig v11 by Sabourifar ==============================================
 echo.
 
-:: Detect and display DNS configuration
+:: Detect current DNS configuration and display it
 call :detect_and_show_dns
+
+:: If no active network interface detected, show limited menu options
 if not defined interface goto no_interface_menu
 
 :main_menu
-:: Display main menu and get user input
+:: Display main menu options
 set "choice="
 echo %line_sep%
 echo.
 echo  # Select DNS configuration method
 echo.
 echo  1. Select preconfigured DNS
-echo  2. Configure DNS manually
+echo  2. Configure DNS manually  
 echo  3. Use automatic DNS (DHCP)
 echo  4. DNS server ping test
 echo  5. Clear DNS cache
@@ -65,7 +67,7 @@ echo.
 set /p "choice=Enter your choice: "
 echo.
 
-:: Process main menu selection
+:: Process user selection
 if "%choice%"=="" goto invalid_main
 if "%choice%"=="1" goto :choice_1
 if "%choice%"=="2" goto :choice_2
@@ -84,7 +86,7 @@ echo.
 goto main_menu
 
 :no_interface_menu
-:: Display limited menu when no interface is detected
+:: Show limited menu when no network interface is available
 set "choice="
 echo %line_sep%
 echo.
@@ -97,7 +99,7 @@ echo.
 set /p "choice=Enter your choice: "
 echo.
 
-:: Process no-interface menu selection
+:: Process limited menu selections
 if "%choice%"=="" goto invalid_no_interface
 if "%choice%"=="1" goto :flush_dns
 if "%choice%"=="2" call :network_reset & goto :exit_menu
@@ -148,6 +150,7 @@ echo.
 echo %double_eq%Performing DNS server ping test...
 echo.
 
+:: Loop through all DNS providers and test their servers
 for /l %%i in (1,1,10) do (
     for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
         echo %quad_eq%%%i. %%a
@@ -164,22 +167,23 @@ for /l %%i in (1,1,10) do (
 echo %line_sep%
 echo.
 
-:: Clear input buffer after ping test
+:: Clear any pending keyboard input
 call :clear_input_buffer
 
 exit /b
 
 :ping_server
+:: Tests connectivity to a DNS server IP address
 set "ip=%~1"
 set "result=Unreachable"
 
-:: Use 2 pings with low timeout for faster unreachable detection
+:: Ping the server twice with short timeout for quick response
 for /f "tokens=9 delims= " %%r in ('ping -n 2 -w 10 %ip% 2^>nul ^| findstr "Average"') do set "result=%%r"
 set "%~2=!result!"
 exit /b
 
 :clear_input_buffer
-:: More reliable method to clear input buffer using PowerShell
+:: Use PowerShell to clear any pending keyboard input
 >nul powershell -noprofile -command "if($Host.UI.RawUI.KeyAvailable){$Host.UI.RawUI.FlushInputBuffer()}"
 exit /b
 
@@ -187,7 +191,7 @@ exit /b
 echo %double_eq%Detecting active network interface...
 echo.
 
-:: Detect the active network interface using netsh
+:: Find the first connected network interface using netsh
 set "interface="
 for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr /C:"Connected"') do (
     set "interface=%%b"
@@ -195,6 +199,7 @@ for /f "tokens=3,*" %%a in ('netsh interface show interface ^| findstr /C:"Conne
 )
 :break_interface
 
+:: Handle case where no active interface is found
 if not defined interface (
     echo %quad_eq%No active network interface found
     echo.
@@ -204,17 +209,18 @@ if not defined interface (
 echo %quad_eq%Active network interface: %interface%
 echo.
 
-:: Check if DNS is set to DHCP
+:: Check if DNS is configured via DHCP
 set "is_dhcp=0"
 for /f "tokens=*" %%a in ('netsh interface ipv4 show dnsservers "%interface%" ^| findstr /i "dhcp"') do set "is_dhcp=1"
 
-:: Retrieve current DNS settings for the interface
+:: Get current DNS server addresses using PowerShell
 set "primary_dns=" & set "secondary_dns="
 for /f "tokens=1,2" %%a in ('!pscmd! "@(Get-DnsClientServerAddress -InterfaceAlias '%interface%' -AddressFamily IPv4 | %%{ $_.ServerAddresses }) -join ' '"') do (
     set "primary_dns=%%a"
     set "secondary_dns=%%b"
 )
 
+:: Display DNS information for DHCP configuration
 if !is_dhcp! EQU 1 (
     echo %quad_eq%DNS name: DHCP
     echo %quad_eq%Primary DNS: %primary_dns%
@@ -227,7 +233,7 @@ if !is_dhcp! EQU 1 (
     exit /b
 )
 
-:: Look up DNS provider names in a single loop
+:: Identify DNS provider names by matching IP addresses
 set "primary_name=Unknown"
 set "secondary_name=Unknown"
 set "both_same_provider=0"
@@ -245,7 +251,7 @@ for /l %%i in (1,1,%dns_count%) do (
     )
 )
 
-:: Display DNS configuration
+:: Display DNS configuration with provider identification
 if !both_same_provider! EQU 1 (
     echo %quad_eq%DNS name: !primary_name!
     echo %quad_eq%Primary DNS: !primary_dns!
@@ -278,11 +284,15 @@ echo.
 echo %double_eq%!applying_msg!...
 echo.
 
+:: Configure interface to use DHCP for DNS
 netsh interface ipv4 set dns name="%interface%" source=dhcp >nul
 
+:: Show updated DNS configuration
 call :detect_and_show_dns
 echo %line_sep%
 echo.
+
+:: Clear DNS cache after configuration change
 call :perform_dns_flush
 goto :exit_menu
 
@@ -311,11 +321,13 @@ echo.
 
 if "%dnschoice%"=="0" goto main_menu
 
+:: Validate user selection
 set "valid_choice=0"
 for /l %%i in (1,1,%dns_count%) do if "%dnschoice%"=="%%i" set "valid_choice=1"
 
 if !valid_choice! EQU 0 goto invalid_dns
 
+:: Extract DNS information for selected provider
 set "NAME=" & set "DNS1=" & set "DNS2="
 for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%dnschoice%]!") do (
     set "NAME=%%a"
@@ -340,6 +352,7 @@ set "DNS1="
 set /p "DNS1=Enter primary DNS server: "
 echo.
 
+:: Validate primary DNS input
 if not defined DNS1 goto invalid_format_primary
 call :validate_ip "!DNS1!"
 if !ERRORLEVEL! NEQ 0 goto invalid_format_primary
@@ -349,12 +362,13 @@ set "DNS2="
 set /p "DNS2=Enter secondary DNS server (optional): "
 echo.
 
+:: Validate secondary DNS input if provided
 if defined DNS2 if "!DNS2!" NEQ "" (
     call :validate_ip "!DNS2!"
     if !ERRORLEVEL! NEQ 0 goto invalid_format_secondary
 )
 
-:: Check if entered DNS matches known providers
+:: Try to identify if manual entry matches known providers
 set "custom_name="
 set "found_provider=0"
 for /l %%i in (1,1,%dns_count%) do (
@@ -366,6 +380,7 @@ for /l %%i in (1,1,%dns_count%) do (
     )
 )
 
+:: Set appropriate display name
 if !found_provider! EQU 1 (
     set "NAME=!custom_name! (manual)"
 ) else (
@@ -389,18 +404,22 @@ echo.
 goto get_secondary
 
 :validate_ip
+:: IP Address Validation Function
 set "ip=%~1"
 set "valid=1"
 
+:: Parse IP address into octets
 for /f "tokens=1-4 delims=." %%a in ("!ip!") do (
     set "oct1=%%a" & set "oct2=%%b" & set "oct3=%%c" & set "oct4=%%d"
 )
 
+:: Check if all 4 octets are present
 if not defined oct4 set "valid=0"
 if not defined oct3 set "valid=0"
 if not defined oct2 set "valid=0"
 if not defined oct1 set "valid=0"
 
+:: Validate each octet
 if !valid! EQU 1 (
     for %%o in (!oct1! !oct2! !oct3! !oct4!) do (
         echo %%o| findstr /r "^[0-9]*$" >nul || set "valid=0"
@@ -410,6 +429,7 @@ if !valid! EQU 1 (
     )
 )
 
+:: Return validation result via ERRORLEVEL
 if !valid! EQU 0 (exit /b 1) else (exit /b 0)
 
 :apply_dns
@@ -418,18 +438,24 @@ echo.
 echo %double_eq%!applying_msg!...
 echo.
 
+:: Configure primary DNS server
 netsh interface ipv4 set dns name="%interface%" static %DNS1% primary >nul
+:: Configure secondary DNS server if provided
 if defined DNS2 if "%DNS2%" NEQ "" netsh interface ipv4 add dns name="%interface%" %DNS2% index=2 >nul
 
+:: Display updated configuration
 call :detect_and_show_dns
 echo %line_sep%
 echo.
+
+:: Clear DNS cache after configuration change
 call :perform_dns_flush
 goto :exit_menu
 
 :perform_dns_flush
 echo %double_eq%!clearing_msg!...
 echo.
+:: Execute DNS cache flush command
 ipconfig /flushdns >nul 2>&1
 if !ERRORLEVEL! EQU 0 (
     echo %quad_eq%!cleared_msg!
@@ -452,6 +478,7 @@ echo %line_sep%
 echo.
 echo %double_eq%Network reset warning
 echo.
+:: Explain what network reset will do
 echo %quad_eq%This will perform a comprehensive network reset, including:
 echo %quad_eq%- Reset Winsock catalog
 echo %quad_eq%- Reset TCP/IP stack
@@ -463,6 +490,7 @@ echo %quad_eq%Warning: Network connection will be temporarily interrupted!
 echo %quad_eq%Some changes may require a system reboot to take full effect.
 echo.
 
+:: Get user confirmation for destructive operation
 set "confirm="
 set /p "confirm=Continue with network reset? (Y/N): "
 echo.
@@ -482,6 +510,7 @@ echo.
 echo %double_eq%Performing network reset...
 echo.
 
+:: Execute comprehensive network reset commands
 echo %quad_eq%Resetting Winsock catalog...
 netsh winsock reset >nul 2>&1
 if !ERRORLEVEL! EQU 0 (echo %quad_eq%Success) else (echo %quad_eq%Warning: Failed)
@@ -512,6 +541,7 @@ ipconfig /renew >nul 2>&1
 if !ERRORLEVEL! EQU 0 (echo %quad_eq%Success) else (echo %quad_eq%Warning: Failed - Check network connection)
 echo.
 
+:: Completion message with recommendation
 echo %double_eq%Network reset completed!
 echo.
 echo %quad_eq%Recommendation: Restart your computer for all changes to take effect.
@@ -526,17 +556,19 @@ echo  1. Back to main menu
 echo  0. Exit
 echo.
 
-:: Clear input buffer after operations that take time
+:: Clear input buffer to prevent accidental selections
 call :clear_input_buffer
 
 set /p "userchoice=Enter your choice: "
 echo.
 
+:: Process exit menu selection
 if "%userchoice%"=="1" (
     if not defined interface (goto no_interface_menu) else (goto main_menu)
 )
 if "%userchoice%"=="0" exit
 
+:: Handle invalid exit menu input
 echo %line_sep%
 echo.
 echo  %invalid_msg%
