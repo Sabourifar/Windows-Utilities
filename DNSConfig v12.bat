@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: Initialization
-title DNSConfig v11 by Sabourifar
+title DNSConfig v12 by Sabourifar
 
 :: Define constants for consistent UI formatting
 set "line_sep========================================================================================================================="
@@ -608,3 +608,4 @@ echo.
 echo %line_sep%
 echo.
 goto exit_menu
+
