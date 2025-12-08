@@ -17,12 +17,12 @@ set "line_sep===================================================================
 set "double_eq=  == "
 set "quad_eq=  ==== "
 set "pscmd=powershell -noprofile -command"
-set "invalid_msg=Invalid selection. Please try again."
+set "invalid_msg=Invalid input. Please check your selection and try again."
 
 :: Define message variables for consistent messaging
-set "applying_msg=Applying DNS settings"
-set "clearing_msg=Clearing DNS cache"
-set "cleared_msg=DNS cache flushed successfully."
+set "applying_msg=Updating DNS configuration"
+set "clearing_msg=Flushing DNS resolver cache"
+set "cleared_msg=Successfully flushed the DNS resolver cache"
 
 :: DNS Provider Database - Name=PrimaryDNS=SecondaryDNS
 set "dns_providers[1]=Cloudflare=1.1.1.1=1.0.0.1"
@@ -33,17 +33,16 @@ set "dns_providers[5]=UltraDNS=64.6.64.6=64.6.65.6"
 set "dns_providers[6]=NTT=129.250.35.250=129.250.35.251"
 set "dns_providers[7]=Shecan=178.22.122.100=185.51.200.2"
 set "dns_providers[8]=Begzar=185.55.226.26=185.55.225.25"
-set "dns_providers[9]=Radar=10.202.10.10=10.202.10.11"
-set "dns_providers[10]=Electro=78.157.42.100=78.157.42.101"
-set "dns_providers[11]=DNSCrypt=127.0.0.1="
-set "dns_count=11"
+set "dns_providers[9]=Electro=78.157.42.100=78.157.42.101"
+set "dns_providers[10]=DNSCrypt=127.0.0.1="
+set "dns_count=10"
 
 :: Display application header
-echo ============================================= DNSConfig v11 by Sabourifar ==============================================
+echo ============================================= DNSConfig v12 by Sabourifar ==============================================
 echo.
 
 :: Detect current DNS configuration and display it
-call :detect_and_show_dns
+call :detect_and_show_network_info
 
 :: If no active network interface detected, show limited menu options
 if not defined interface goto no_interface_menu
@@ -53,15 +52,12 @@ if not defined interface goto no_interface_menu
 set "choice="
 echo %line_sep%
 echo.
-echo  # Select DNS configuration method
-echo.
-echo  1. Select preconfigured DNS
-echo  2. Configure DNS manually  
-echo  3. Use automatic DNS (DHCP)
-echo  4. DNS server ping test
-echo  5. Clear DNS cache
+echo  1. Preconfigured DNS
+echo  2. Configure DNS manually
+echo  3. Automatic DNS (DHCP)
+echo  4. Clear DNS cache
+echo  5. View network information
 echo  6. Reset network settings
-echo  7. View current DNS settings
 echo  0. Exit
 echo.
 set /p "choice=Enter your choice: "
@@ -75,7 +71,6 @@ if "%choice%"=="3" goto :choice_3
 if "%choice%"=="4" goto :choice_4
 if "%choice%"=="5" goto :choice_5
 if "%choice%"=="6" goto :choice_6
-if "%choice%"=="7" goto :choice_7
 if "%choice%"=="0" exit
 
 :invalid_main
@@ -89,8 +84,6 @@ goto main_menu
 :: Show limited menu when no network interface is available
 set "choice="
 echo %line_sep%
-echo.
-echo  # Only DNS cache clearing and network reset are available - connect to a network to configure DNS
 echo.
 echo  1. Clear DNS cache
 echo  2. Reset network settings
@@ -125,23 +118,19 @@ call :set_dhcp
 goto :exit_menu
 
 :choice_4
-call :check_dns_ping_test
+call :flush_dns
 goto :exit_menu
 
 :choice_5
-call :flush_dns
+echo %line_sep%
+echo.
+call :detect_and_show_network_info
+echo %line_sep%
+echo.
 goto :exit_menu
 
 :choice_6
 call :network_reset
-goto :exit_menu
-
-:choice_7
-echo %line_sep%
-echo.
-call :detect_and_show_dns
-echo %line_sep%
-echo.
 goto :exit_menu
 
 :check_dns_ping_test
@@ -172,13 +161,13 @@ call :clear_input_buffer
 
 exit /b
 
-:ping_server
-:: Tests connectivity to a DNS server IP address
+:ping_server_average
+:: Ping a DNS server 2 times and get average latency
 set "ip=%~1"
-set "result=Unreachable"
+set "result=N/A"
 
-:: Ping the server twice with short timeout for quick response
-for /f "tokens=9 delims= " %%r in ('ping -n 2 -w 10 %ip% 2^>nul ^| findstr "Average"') do set "result=%%r"
+:: Ping twice and get average from the statistics
+for /f "tokens=9 delims= " %%r in ('ping -n 2 -w 1000 %ip% 2^>nul ^| findstr "Average"') do set "result=%%r"
 set "%~2=!result!"
 exit /b
 
@@ -187,7 +176,7 @@ exit /b
 >nul powershell -noprofile -command "if($Host.UI.RawUI.KeyAvailable){$Host.UI.RawUI.FlushInputBuffer()}"
 exit /b
 
-:detect_and_show_dns
+:detect_and_show_network_info
 echo %double_eq%Detecting active network interface...
 echo.
 
@@ -207,6 +196,33 @@ if not defined interface (
 )
 
 echo %quad_eq%Active network interface: %interface%
+echo.
+
+:: Get Public IP Address using curl (no PowerShell blue screen)
+set "public_ip=Not available"
+for /f "delims=" %%a in ('curl -s --max-time 3 https://api.ipify.org 2^>nul') do set "public_ip=%%a"
+
+:: Get Local IP Address
+set "local_ip=Not available"
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do (
+    set "local_ip=%%a"
+    set "local_ip=!local_ip:~1!"
+    goto :break_local
+)
+:break_local
+
+:: Get Gateway IP (Default Gateway)
+set "gateway_ip=Not available"
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"Default Gateway"') do (
+    set "gateway_ip=%%a"
+    set "gateway_ip=!gateway_ip:~1!"
+    if "!gateway_ip!" NEQ "" goto :break_gateway
+)
+:break_gateway
+
+echo %quad_eq%Public IP: %public_ip%
+echo %quad_eq%Local IP: %local_ip%
+echo %quad_eq%Gateway IP: %gateway_ip%
 echo.
 
 :: Check if DNS is configured via DHCP
@@ -288,7 +304,7 @@ echo.
 netsh interface ipv4 set dns name="%interface%" source=dhcp >nul
 
 :: Show updated DNS configuration
-call :detect_and_show_dns
+call :detect_and_show_network_info
 echo %line_sep%
 echo.
 
@@ -301,19 +317,35 @@ goto :exit_menu
 set "dnschoice="
 echo %line_sep%
 echo.
-echo  # Select preconfigured DNS server
-echo.
-echo  1. Cloudflare
-echo  2. Google
-echo  3. Quad9
-echo  4. OpenDNS
-echo  5. UltraDNS
-echo  6. NTT
-echo  7. Shecan
-echo  8. Begzar
-echo  9. Radar
-echo  10. Electro
-echo  11. DNSCrypt
+
+:: Test latency for each DNS provider one by one and display immediately
+for /l %%i in (1,1,%dns_count%) do (
+    for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
+        :: Try primary DNS first
+        call :ping_server_average "%%b" latency_primary
+        
+        if "!latency_primary!" NEQ "N/A" (
+            :: Primary responded, use it
+            set "dns_latency[%%i]=!latency_primary!"
+        ) else (
+            :: Primary failed, try secondary if it exists
+            if "%%c" NEQ "" (
+                call :ping_server_average "%%c" latency_secondary
+                set "dns_latency[%%i]=!latency_secondary!"
+            ) else (
+                set "dns_latency[%%i]=N/A"
+            )
+        )
+        
+        :: Display result
+        if "!dns_latency[%%i]!" NEQ "N/A" (
+            echo  %%i. %%a ^(!dns_latency[%%i]!^)
+        ) else (
+            echo  %%i. %%a ^(N/A^)
+        )
+    )
+)
+
 echo  0. Back to main menu
 echo.
 set /p "dnschoice=Enter your choice: "
@@ -444,7 +476,7 @@ netsh interface ipv4 set dns name="%interface%" static %DNS1% primary >nul
 if defined DNS2 if "%DNS2%" NEQ "" netsh interface ipv4 add dns name="%interface%" %DNS2% index=2 >nul
 
 :: Display updated configuration
-call :detect_and_show_dns
+call :detect_and_show_network_info
 echo %line_sep%
 echo.
 
