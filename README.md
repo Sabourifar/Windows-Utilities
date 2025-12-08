@@ -147,9 +147,11 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 ---
 ## Contributing
 Feel free to modify and enhance the scripts. Contributions are welcome!
+
 ---
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ---
 ## Contact
 For inquiries or feedback, reach out to Sabourifar.
