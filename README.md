@@ -1,11 +1,9 @@
 # README
 ## Overview
 This repository contains three utilities developed by Sabourifar:
-
 1. **DNS Configuration Utility**
 2. **Password Manager Utility**
 3. **Fast Startup Disabler**
-
 These scripts are designed to facilitate network DNS configuration, secure password generation/management, and enabling true cold shutdowns, respectively.
 ---
 ## DNS Configuration Utility
