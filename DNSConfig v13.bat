@@ -511,9 +511,9 @@ exit /b
 :get_public_ip
 :: Get Public IP Address using fastest method
 set "public_ip=Not available"
-for /f "delims=" %%a in ('curl -s --max-time 2 https://icanhazip.com 2^>nul') do set "public_ip=%%a"
+for /f "delims=" %%a in ('curl -s --max-time 0.4 https://icanhazip.com 2^>nul') do set "public_ip=%%a"
 if "!public_ip!"=="Not available" (
-    for /f "delims=" %%a in ('curl -s --max-time 2 https://api.ipify.org 2^>nul') do set "public_ip=%%a"
+    for /f "delims=" %%a in ('curl -s --max-time 0.4 https://api.ipify.org 2^>nul') do set "public_ip=%%a"
 )
 exit /b
 
@@ -762,4 +762,5 @@ call :show_invalid_message
 echo %line_sep%
 echo.
 goto exit_menu
+
 
