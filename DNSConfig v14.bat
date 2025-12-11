@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: Initialization
-title DNSConfig v13 by Sabourifar
+title DNSConfig v14 by Sabourifar
 
 :: Define constants for consistent UI formatting
 set "line_sep========================================================================================================================="
@@ -37,7 +37,7 @@ set "dns_providers[9]=DNSCrypt=127.0.0.1="
 set "dns_count=9"
 
 :: Display application header
-echo ============================================= DNSConfig v13 by Sabourifar ==============================================
+echo ============================================= DNSConfig v14 by Sabourifar ==============================================
 echo.
 
 :: Detect current DNS configuration and display it
@@ -762,5 +762,6 @@ call :show_invalid_message
 echo %line_sep%
 echo.
 goto exit_menu
+
 
 
