@@ -133,8 +133,8 @@ The following DNS providers are available with real-time latency testing:
 - Supports both matching provider configurations and mixed/custom setups.
 
 #### Public IP Detection
-- Primary: `https://icanhazip.com` (2-second timeout)
-- Fallback: `https://api.ipify.org` (2-second timeout)
+- Primary: `https://icanhazip.com` (2-second timeout).
+- Fallback: `https://api.ipify.org` (2-second timeout).
 - Uses native Windows curl (available in Windows 10 1803+).
 
 ---
