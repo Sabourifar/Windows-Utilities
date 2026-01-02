@@ -7,9 +7,7 @@ set "LOWERCASE=abcdefghijklmnopqrstuvwxyz"
 set "NUMBERS=0123456789"
 set "SYMBOLS=^!^"#$%%^&'()*+,-./:;^<^=^>^?@[\]^^^_^`{^|}^~"
 set "LINE_SEP========================================================================================================================="
-set "INVALID_MAIN=Please enter a valid option: 1 or 2, or 00 to exit."
-set "INVALID_DISPLAY=Please enter a valid option: 1, 2, 3, 0 (back to main), or 00 (exit)."
-set "INVALID_CHARSET=Please answer with Y/y or N/n."
+set "GENERAL_ERROR=Please enter a valid option."
 set "SCRIPT_DIR=%~dp0"
 set "SAVE_FILE=%SCRIPT_DIR%Passwords.txt"
 
@@ -30,7 +28,7 @@ if "%CHOICE%"=="00" exit /b
 echo.
 echo %LINE_SEP%
 echo.
-echo %INVALID_MAIN%
+echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 echo.
@@ -48,7 +46,7 @@ if not defined LENGTH (
     echo.
     echo %LINE_SEP%
     echo.
-    echo Please enter a valid number between 4 and 80.
+    echo %GENERAL_ERROR%
     echo.
     echo %LINE_SEP%
     echo.
@@ -59,7 +57,7 @@ if !TEST_NUM! LSS 4 (
     echo.
     echo %LINE_SEP%
     echo.
-    echo Please enter a valid number between 4 and 80.
+    echo %GENERAL_ERROR%
     echo.
     echo %LINE_SEP%
     echo.
@@ -69,7 +67,7 @@ if !TEST_NUM! GTR 80 (
     echo.
     echo %LINE_SEP%
     echo.
-    echo Please enter a valid number between 4 and 80.
+    echo %GENERAL_ERROR%
     echo.
     echo %LINE_SEP%
     echo.
@@ -98,7 +96,7 @@ if /i "%IN%"=="N" goto check_lower
 echo.
 echo %LINE_SEP%
 echo.
-echo %INVALID_CHARSET%
+echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 echo.
@@ -115,7 +113,7 @@ if /i "%IN%"=="N" goto check_numbers
 echo.
 echo %LINE_SEP%
 echo.
-echo %INVALID_CHARSET%
+echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 echo.
@@ -132,7 +130,7 @@ if /i "%IN%"=="N" goto check_symbols
 echo.
 echo %LINE_SEP%
 echo.
-echo %INVALID_CHARSET%
+echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 echo.
@@ -149,7 +147,7 @@ if /i "%IN%"=="N" goto validate_charset
 echo.
 echo %LINE_SEP%
 echo.
-echo %INVALID_CHARSET%
+echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 echo.
@@ -160,7 +158,7 @@ if !ACTIVE_SETS! EQU 0 (
     echo.
     echo %LINE_SEP%
     echo.
-    echo You must select at least one character type.
+    echo %GENERAL_ERROR%
     echo.
     echo %LINE_SEP%
     echo.
@@ -248,7 +246,7 @@ if "%A%"=="00" (
 echo.
 echo %LINE_SEP%
 echo.
-echo %INVALID_DISPLAY%
+echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 echo.
@@ -279,7 +277,7 @@ if not defined TITLE (
     echo.
     echo %LINE_SEP%
     echo.
-    echo Title cannot be empty. Please enter a title.
+    echo %GENERAL_ERROR%
     echo.
     echo %LINE_SEP%
     echo.
@@ -290,7 +288,7 @@ if not defined USERNAME (
     echo.
     echo %LINE_SEP%
     echo.
-    echo Username cannot be empty. Please enter a username.
+    echo %GENERAL_ERROR%
     echo.
     echo %LINE_SEP%
     echo.
