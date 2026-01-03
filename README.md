@@ -5,10 +5,10 @@
 This repository contains three Windows Batch utilities developed by Sabourifar:
 
 - **DFStartup.bat** – Disables Windows Fast Startup for true cold boots.
-- **DNSConfig.bat** – Comprehensive DNS management tool with provider selection and latency testing.
+- **DNSConfig.bat** – Comprehensive DNS management tool with provider selection, latency testing, and network diagnostics.
 - **PWGenerator.bat** – Secure password generator with optional saving of login credentials.
 
-All scripts are self-contained, require no external dependencies beyond standard Windows features, and include administrative privilege elevation where necessary.
+All scripts are self-contained and use only built-in Windows features.
 
 ---
 
@@ -21,9 +21,6 @@ Disables Windows Fast Startup (Hybrid Boot) by modifying the relevant registry k
 - Automatic elevation to administrator privileges
 - Clear success feedback
 - Reminder to restart for changes to take effect
-
-### Usage
-Right-click `DFStartup.bat` and select **Run as administrator** (or simply run it; elevation will be requested if needed). Restart the system afterward.
 
 ### Benefits
 - Complete hardware/driver reset on boot
@@ -50,9 +47,6 @@ Simplifies DNS configuration, diagnostics, and network troubleshooting on Window
 - Menu-driven interface with clear navigation and error handling
 - Automatic administrator elevation
 
-### Usage
-Run `DNSConfig.bat` as administrator. Follow the on-screen menu to configure DNS, view information, or perform maintenance tasks.
-
 ### Supported Providers
 - Cloudflare (1.1.1.1 / 1.0.0.1)
 - Google (8.8.8.8 / 8.8.4.4)
@@ -78,9 +72,6 @@ Generates strong random passwords and optionally saves them with associated logi
 - Balanced character distribution with Fisher-Yates shuffle
 - Options to save password only or with title/username to `Passwords.txt` in script directory
 - Simple, menu-driven interface
-
-### Usage
-Run `PWGenerator.bat`. Choose secure or custom generation, specify length (and character types if custom), then decide whether to generate another or save the result.
 
 ---
 
