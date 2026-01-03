@@ -4,15 +4,15 @@
 
 This repository contains three Windows Batch utilities developed by Sabourifar:
 
-- **DFStartup.bat** – Disables Windows Fast Startup for true cold boots.
-- **DNSConfig.bat** – Comprehensive DNS management tool with provider selection and latency testing.
-- **PWGenerator.bat** – Secure password generator with optional saving of login credentials.
+- **DFStartup** – Disables Windows Fast Startup for true cold boots.
+- **DNSConfig** – Comprehensive DNS management tool with provider selection and latency testing.
+- **PWGenerator** – Secure password generator with optional saving of login credentials.
 
 All scripts are self-contained and use only built-in Windows features.
 
 ---
 
-## DFStartup.bat
+## DFStartup
 
 ### Purpose
 Disables Windows Fast Startup (Hybrid Boot) by modifying the relevant registry key, enabling full hardware resets on shutdown.
@@ -30,7 +30,7 @@ Disables Windows Fast Startup (Hybrid Boot) by modifying the relevant registry k
 
 ---
 
-## DNSConfig.bat
+## DNSConfig
 
 ### Purpose
 Simplifies DNS configuration, diagnostics, and network troubleshooting on Windows systems.
@@ -60,7 +60,7 @@ Simplifies DNS configuration, diagnostics, and network troubleshooting on Window
 
 ---
 
-## PWGenerator.bat
+## PWGenerator
 
 ### Purpose
 Generates strong random passwords and optionally saves them with associated login information.
