@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal EnableDelayedExpansion
 chcp 65001 >nul 2>&1
 
 NET FILE >nul 2>&1
@@ -10,7 +10,7 @@ if %ERRORLEVEL% NEQ 0 (
     exit
 )
 
-title DNSConfig v26 by Sabourifar
+title DNSConfig v26.1 by Sabourifar
 
 set "LINE_SEP========================================================================================================================="
 set "DOUBLE_EQ= == "
@@ -39,20 +39,18 @@ set "CACHED_DNS_INFO="
 set "pings_completed="
 set "PING_TIME="
 
-echo ============================================= DNSConfig v26 by Sabourifar ==============================================
+rem Flag used to control whether perform_dns_flush prints its leading blank line.
+rem If a caller already printed a blank line, set SKIP_BLANK_BEFORE_FLUSH=1 before calling perform_dns_flush.
+set "SKIP_BLANK_BEFORE_FLUSH="
+
+echo ============================================ DNSConfig v26.1 by Sabourifar =============================================
 echo.
 call :detect_and_show_network_info
 if not defined interface goto no_interface_menu
 
 :main_menu
 set "CHOICE="
-if defined SKIP_LEADING_SEP (
-    set "SKIP_LEADING_SEP="
-    echo.
-) else (
-    echo %LINE_SEP%
-    echo.
-)
+call :print_separator_with_blank
 echo 1. Preconfigured DNS
 echo 2. Configure DNS manually
 echo 3. Automatic DNS (DHCP)
@@ -66,8 +64,8 @@ if not defined pings_completed (
     call :ping_all_dns_background
     set "pings_completed=1"
 )
-set /p "CHOICE=Enter your choice: "
-for /f "tokens=* delims= " %%x in ("!CHOICE!") do set "CHOICE=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter your choice: " CHOICE
 echo.
 if "%CHOICE%"=="1" goto choice_1
 if "%CHOICE%"=="2" goto choice_2
@@ -81,23 +79,21 @@ goto main_menu
 
 :no_interface_menu
 set "CHOICE="
-if defined SKIP_LEADING_SEP (
-    set "SKIP_LEADING_SEP="
-    echo.
-) else (
-    echo %LINE_SEP%
-    echo.
-)
+call :print_separator_with_blank
 echo 1. Clear DNS cache
-echo 2. Reset network settings
 echo.
 echo 00. Exit completely
 echo.
-set /p "CHOICE=Enter your choice: "
-for /f "tokens=* delims= " %%x in ("!CHOICE!") do set "CHOICE=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter your choice: " CHOICE
 echo.
-if "%CHOICE%"=="1" goto flush_dns
-if "%CHOICE%"=="2" call :network_reset & goto exit_menu
+if "%CHOICE%"=="1" (
+    echo %LINE_SEP%
+    echo.
+    set "SKIP_BLANK_BEFORE_FLUSH=1"
+    call :perform_dns_flush
+    goto exit_menu
+)
 if "%CHOICE%"=="00" goto exit_program
 call :show_error
 goto no_interface_menu
@@ -131,99 +127,90 @@ call :network_reset
 goto exit_menu
 
 :ping_all_dns_background
-for /l %%i in (1,1,%DNS_COUNT%) do (
+set "fail_count=0"
+set "restricted=0"
+for /l %%i in (1,1,2) do (
     for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
-        if %%i EQU 9 (
-            set "dns_latency[%%i]=0ms"
+        call :ping_server "%%b" dns_latency[%%i]
+        if "!dns_latency[%%i]!"=="N/A" set /a fail_count+=1
+    )
+)
+if !fail_count! EQU 2 set "restricted=1"
+for /l %%i in (3,1,8) do (
+    for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
+        if !restricted! EQU 1 (
+            set "dns_latency[%%i]=N/A"
         ) else (
             call :ping_server "%%b" dns_latency[%%i]
         )
     )
 )
-set "PING_TIME=%time:~0,8%"
+set "dns_latency[9]=0ms"
+call :update_time
+exit /b
+
+:update_time
+set "hh=%time:~0,2%"
+set "mm=%time:~3,2%"
+set "ss=%time:~6,2%"
+set "ampm=AM"
+rem Replace leading space with 0 to maintain two-digit format
+set "hh=%hh: =0%"
+set /a "hh_num=1%hh%-100"
+if !hh_num! geq 12 (
+    set "ampm=PM"
+    if !hh_num! gtr 12 set /a hh_num-=12
+)
+if !hh_num! equ 0 set hh_num=12
+set "hh=!hh_num!"
+set "PING_TIME=!hh!:!mm!:!ss! !ampm!"
 exit /b
 
 :ping_server
 set "IP=%~1"
 set "VAR=%~2"
-set "RESULT=N/A"
-set "ATTEMPTS=0"
-
-:retry_ping
-set /a ATTEMPTS+=1
-if !ATTEMPTS! GTR 3 (
-    set "!VAR!=N/A"
-    exit /b
-)
-for /f "delims=" %%a in ('ping -n 1 -w 300 !IP! 2^>nul ^| findstr /i "TTL"') do (
+for /f "delims=" %%a in ('ping -n 1 -w 200 !IP! 2^>nul ^| findstr /i "TTL"') do (
     set "LINE=%%a"
     set "LINE=!LINE:*time=!"
     if "!LINE!" NEQ "%%a" (
-        for /f "tokens=1 delims= " %%t in ("!LINE:~1!") do set "RESULT=%%t"
-        goto set_latency
+        for /f "tokens=1 delims= " %%t in ("!LINE!") do (
+            set "RESULT=%%t"
+            if "!RESULT:~0,1!"=="=" set "RESULT=!RESULT:~1!"
+            set "!VAR!=!RESULT!"
+            exit /b
+        )
     )
 )
-goto retry_ping
-
-:set_latency
-set "!VAR!=!RESULT!"
+set "!VAR!=N/A"
 exit /b
 
 :choose_dns
 :retry_dns
 set "DNSCHOICE="
-if defined SKIP_LEADING_SEP (
-    set "SKIP_LEADING_SEP="
-    echo.
-) else (
-    echo %LINE_SEP%
-    echo.
-)
-for /l %%i in (1,1,%DNS_COUNT%) do (
-    for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
-        if "!dns_latency[%%i]!" NEQ "N/A" (
-            echo %%i. %%a ^(!dns_latency[%%i]!^)
-        ) else (
-            echo %%i. %%a ^(N/A^)
-        )
-    )
-)
+call :print_separator_with_blank
+call :display_dns_list
 echo.
-echo Ping time: !PING_TIME!
+echo Measurement Time: !PING_TIME!
 echo.
 echo 10. Ping again
 echo.
 echo 0. Back to main menu
 echo 00. Exit completely
 echo.
-set /p "DNSCHOICE=Enter your choice: "
-for /f "tokens=* delims= " %%x in ("!DNSCHOICE!") do set "DNSCHOICE=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter your choice: " DNSCHOICE
 echo.
 if "%DNSCHOICE%"=="0" goto main_menu
 if "%DNSCHOICE%"=="00" goto exit_program
 if "%DNSCHOICE%"=="10" goto reping_dns
-for /l %%i in (1,1,%DNS_COUNT%) do (
-    if "%DNSCHOICE%"=="%%i" (
-        for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
-            set "NAME=%%a"
-            set "DNS1=%%b"
-            set "DNS2=%%c"
-        )
-        goto apply_dns
-    )
-)
+call :check_dns_choice_and_apply
+if !ERRORLEVEL! EQU 0 goto apply_dns
 call :show_error
 goto retry_dns
 
 :reping_dns
 set "DNSCHOICE="
-if defined SKIP_LEADING_SEP (
-    set "SKIP_LEADING_SEP="
-    echo.
-) else (
-    echo %LINE_SEP%
-    echo.
-)
+call :print_separator_with_blank
 for /l %%i in (1,1,%DNS_COUNT%) do (
     for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
         if %%i EQU 9 (
@@ -237,20 +224,38 @@ for /l %%i in (1,1,%DNS_COUNT%) do (
     )
 )
 echo.
-echo Ping time: !time:~0,8!
-set "PING_TIME=!time:~0,8!"
+call :update_time
+echo Measurement Time: !PING_TIME!
 echo.
 echo 10. Ping again
 echo.
 echo 0. Back to main menu
 echo 00. Exit completely
 echo.
-set /p "DNSCHOICE=Enter your choice: "
-for /f "tokens=* delims= " %%x in ("!DNSCHOICE!") do set "DNSCHOICE=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter your choice: " DNSCHOICE
 echo.
 if "%DNSCHOICE%"=="0" goto main_menu
 if "%DNSCHOICE%"=="00" goto exit_program
 if "%DNSCHOICE%"=="10" goto reping_dns
+call :check_dns_choice_and_apply
+if !ERRORLEVEL! EQU 0 goto apply_dns
+call :show_error
+goto reping_dns
+
+:display_dns_list
+for /l %%i in (1,1,%DNS_COUNT%) do (
+    for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
+        if "!dns_latency[%%i]!" NEQ "N/A" (
+            echo %%i. %%a ^(!dns_latency[%%i]!^)
+        ) else (
+            echo %%i. %%a ^(N/A^)
+        )
+    )
+)
+exit /b
+
+:check_dns_choice_and_apply
 for /l %%i in (1,1,%DNS_COUNT%) do (
     if "%DNSCHOICE%"=="%%i" (
         for /f "tokens=1-3 delims==" %%a in ("!dns_providers[%%i]!") do (
@@ -258,11 +263,10 @@ for /l %%i in (1,1,%DNS_COUNT%) do (
             set "DNS1=%%b"
             set "DNS2=%%c"
         )
-        goto apply_dns
+        exit /b 0
     )
 )
-call :show_error
-goto retry_dns
+exit /b 1
 
 :advanced_dns
 echo %LINE_SEP%
@@ -270,8 +274,8 @@ echo.
 
 :get_primary
 set "DNS1="
-set /p "DNS1=Enter primary DNS server: "
-for /f "tokens=* delims= " %%x in ("!DNS1!") do set "DNS1=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter primary DNS server: " DNS1
 echo.
 if not defined DNS1 (
     call :show_error
@@ -285,8 +289,8 @@ if !ERRORLEVEL! NEQ 0 (
 
 :get_secondary
 set "DNS2="
-set /p "DNS2=Enter secondary DNS server (optional): "
-for /f "tokens=* delims= " %%x in ("!DNS2!") do set "DNS2=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter secondary DNS server (optional): " DNS2
 echo.
 if defined DNS2 if "!DNS2!" NEQ "" (
     call :validate_ip "!DNS2!"
@@ -324,20 +328,20 @@ if defined DNS2 if "%DNS2%" NEQ "" netsh interface ipv4 add dns name="%interface
 set "CACHED_DNS_INFO="
 call :detect_and_show_network_info
 echo %LINE_SEP%
-echo.
 set "SKIP_LEADING_SEP=1"
+rem Apply did NOT print an extra blank line after the separator; let perform_dns_flush print the single required blank line.
+set "SKIP_BLANK_BEFORE_FLUSH="
 call :perform_dns_flush
 goto exit_menu
 
 :perform_dns_flush
+rem Ensure exactly one blank line appears above the clearing message.
+if not defined SKIP_BLANK_BEFORE_FLUSH echo.
+set "SKIP_BLANK_BEFORE_FLUSH="
 echo %DOUBLE_EQ%!CLEARING_MSG!...
 echo.
 ipconfig /flushdns >nul 2>&1
-if !ERRORLEVEL! EQU 0 (
-    echo %QUAD_EQ%!CLEARED_MSG!
-) else (
-    echo %QUAD_EQ%Warning: DNS flush failed. Check if DNS Client service is running.
-)
+call :print_command_result "!CLEARED_MSG!" "Warning: DNS flush failed. Check if DNS Client service is running."
 echo.
 echo %LINE_SEP%
 set "SKIP_LEADING_SEP=1"
@@ -346,6 +350,8 @@ exit /b
 :flush_dns
 echo %LINE_SEP%
 echo.
+rem flush_dns already printed a blank line, so instruct perform_dns_flush to skip its leading blank-line.
+set "SKIP_BLANK_BEFORE_FLUSH=1"
 call :perform_dns_flush
 exit /b
 
@@ -367,7 +373,7 @@ if defined CACHED_INTERFACE (
         exit /b
     )
 )
-echo %QUAD_EQ%Active network interface: %interface%
+echo %QUAD_EQ%Active network interface: !interface!
 echo.
 if not defined CACHED_LOCAL_IP call :get_local_ip
 if not defined CACHED_GATEWAY_IP call :get_gateway_ip
@@ -409,27 +415,42 @@ exit /b
 :get_local_ip
 set "CACHED_LOCAL_IP=Not available"
 for /f "tokens=2 delims=:" %%a in ('ipconfig 2^>nul ^| findstr /c:"IPv4 Address"') do (
-    set "CACHED_LOCAL_IP=%%a"
-    set "CACHED_LOCAL_IP=!CACHED_LOCAL_IP:~1!"
-    exit /b
+    set "tmp=%%a"
+    set "tmp=!tmp:~1!"
+    if "!tmp!" NEQ "" set "CACHED_LOCAL_IP=!tmp!"
+    goto :eof
 )
 exit /b
 
 :get_gateway_ip
 set "CACHED_GATEWAY_IP=Not available"
 for /f "tokens=2 delims=:" %%a in ('ipconfig 2^>nul ^| findstr /c:"Default Gateway"') do (
-    set "CACHED_GATEWAY_IP=%%a"
-    set "CACHED_GATEWAY_IP=!CACHED_GATEWAY_IP:~1!"
-    if "!CACHED_GATEWAY_IP!" NEQ "" exit /b
+    set "tmp=%%a"
+    set "tmp=!tmp:~1!"
+    if "!tmp!" NEQ "" (
+        set "CACHED_GATEWAY_IP=!tmp!"
+        goto :eof
+    )
 )
 exit /b
 
 :get_public_ip
 set "public_ip=Not available"
-for /f "delims=" %%a in ('curl -s --max-time 1 https://api.seeip.org 2^>nul') do set "public_ip=%%a"
-if "!public_ip!"=="Not available" (
-    for /f "delims=" %%a in ('curl -s --max-time 1 https://icanhazip.com 2^>nul') do set "public_ip=%%a"
+for %%u in (
+    "https://icanhazip.com"
+    "https://checkip.amazonaws.com"
+) do if "!public_ip!"=="Not available" (
+    for /f "delims=" %%r in ('curl -s --max-time 2 --fail "%%~u" 2^>nul') do (
+        set "out=%%r"
+        set "out=!out: =!"
+        set "out=!out:	=!"
+        if "!out!" NEQ "" (
+            set "public_ip=!out!"
+            goto :public_ip_done
+        )
+    )
 )
+:public_ip_done
 exit /b
 
 :get_dns_servers
@@ -444,7 +465,7 @@ for /f "tokens=*" %%a in ('netsh interface ipv4 show dnsservers "%interface%" 2^
         set "line=%%a"
         set "line=!line:Statically Configured DNS Servers: =!"
         set "line=!line:DNS servers configured through DHCP: =!"
-        for /f %%b in ("!line!") do (
+        for /f "tokens=1" %%b in ("!line!") do (
             if !dns_index! EQU 1 set "primary_dns=%%b"
             if !dns_index! EQU 2 set "secondary_dns=%%b"
         )
@@ -481,6 +502,8 @@ call :detect_and_show_network_info
 echo %LINE_SEP%
 echo.
 set "SKIP_LEADING_SEP=1"
+rem set_dhcp printed a blank line immediately after the separator, so instruct perform_dns_flush to skip its own leading blank line.
+set "SKIP_BLANK_BEFORE_FLUSH=1"
 call :perform_dns_flush
 goto exit_menu
 
@@ -500,8 +523,8 @@ echo %QUAD_EQ%Warning: Network connection will be temporarily interrupted!
 echo %QUAD_EQ%Some changes may require a system reboot to take full effect.
 echo.
 set "CONFIRM="
-set /p "CONFIRM=Continue with network reset? (Y/y or N/n): "
-for /f "tokens=* delims= " %%x in ("!CONFIRM!") do set "CONFIRM=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Continue with network reset? (Y/y or N/n): " CONFIRM
 echo.
 if /i "!CONFIRM!"=="Y" goto confirm_reset
 if /i "!CONFIRM!"=="YES" goto confirm_reset
@@ -515,7 +538,7 @@ echo %DOUBLE_EQ%Performing network reset...
 echo.
 echo %QUAD_EQ%Resetting Winsock catalog...
 netsh winsock reset >nul 2>&1
-if !ERRORLEVEL! EQU 0 (echo %QUAD_EQ%Success) else (echo %QUAD_EQ%Warning: Failed)
+call :print_command_result "Success" "Warning: Failed"
 echo.
 echo %QUAD_EQ%Resetting TCP/IP stack...
 netsh int ip reset >nul 2>&1
@@ -523,19 +546,19 @@ echo %QUAD_EQ%Success
 echo.
 echo %QUAD_EQ%Resetting Windows Firewall...
 netsh advfirewall reset >nul 2>&1
-if !ERRORLEVEL! EQU 0 (echo %QUAD_EQ%Success) else (echo %QUAD_EQ%Warning: Failed)
+call :print_command_result "Success" "Warning: Failed"
 echo.
 echo %QUAD_EQ%Flushing DNS cache...
 ipconfig /flushdns >nul 2>&1
-if !ERRORLEVEL! EQU 0 (echo %QUAD_EQ%Success) else (echo %QUAD_EQ%Warning: Failed - Check DNS Client service)
+call :print_command_result "Success" "Warning: Failed - Check DNS Client service"
 echo.
 echo %QUAD_EQ%Releasing IP configuration...
 ipconfig /release >nul 2>&1
-if !ERRORLEVEL! EQU 0 (echo %QUAD_EQ%Success) else (echo %QUAD_EQ%Warning: Failed or no DHCP lease)
+call :print_command_result "Success" "Warning: Failed or no DHCP lease"
 echo.
 echo %QUAD_EQ%Renewing IP configuration...
 ipconfig /renew >nul 2>&1
-if !ERRORLEVEL! EQU 0 (echo %QUAD_EQ%Success) else (echo %QUAD_EQ%Warning: Failed - Check network connection)
+call :print_command_result "Success" "Warning: Failed - Check network connection"
 echo.
 echo %DOUBLE_EQ%Network reset completed!
 echo.
@@ -549,21 +572,15 @@ goto exit_menu
 
 :exit_menu
 set "USERCHOICE="
-if defined SKIP_LEADING_SEP (
-    set "SKIP_LEADING_SEP="
-    echo.
-) else (
-    echo %LINE_SEP%
-    echo.
-)
+call :print_separator_with_blank
 echo 0. Back to main menu
 echo 00. Exit completely
 echo.
-set /p "USERCHOICE=Enter your choice: "
-for /f "tokens=* delims= " %%x in ("!USERCHOICE!") do set "USERCHOICE=%%x"
+call :flush_input_buffer
+call :get_trimmed_input "Enter your choice: " USERCHOICE
 echo.
 if "%USERCHOICE%"=="0" (
-    if not defined interface (goto no_interface_menu) else (goto main_menu)
+    if not defined CACHED_INTERFACE (goto no_interface_menu) else (goto main_menu)
 )
 if "%USERCHOICE%"=="00" goto exit_program
 call :show_error
@@ -576,6 +593,31 @@ echo %GENERAL_ERROR%
 echo.
 echo %LINE_SEP%
 set "SKIP_LEADING_SEP=1"
+exit /b
+
+:print_separator_with_blank
+if defined SKIP_LEADING_SEP (
+    set "SKIP_LEADING_SEP="
+    echo.
+) else (
+    echo %LINE_SEP%
+    echo.
+)
+exit /b
+
+:get_trimmed_input
+set "prompt_text=%~1"
+set "var_name=%~2"
+set /p "%var_name%=%prompt_text%"
+for /f "tokens=* delims= " %%x in ("!%var_name%!") do set "%var_name%=%%x"
+exit /b
+
+:print_command_result
+if !ERRORLEVEL! EQU 0 (echo %QUAD_EQ%%~1) else (echo %QUAD_EQ%%~2)
+exit /b
+
+:flush_input_buffer
+powershell -NoProfile -Command "try { while ([console]::KeyAvailable) { [console]::ReadKey($true) } } catch { }" >nul 2>&1
 exit /b
 
 :exit_program
